@@ -8,7 +8,6 @@ import PyPDF2
 import docx2txt
 import pdfplumber
 from langchain_community.llms import HuggingFaceHub
-from langchain_openai import ChatOpenAI
 
 # --- Database ---
 # This logic ensures the app finds the single database in the project's root folder.
@@ -90,7 +89,7 @@ def analyze_resume(resume_text, jd_text):
     hf_api_key = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
     if not hf_api_key:
-        return {"error": "Hugging Face API Token not found. Please set it in the Streamlit Secrets."}
+        return {"error": "Hugging Face API Token not found. Please check the secret name in your Streamlit settings. It must be exactly HUGGINGFACEHUB_API_TOKEN."}
 
     try:
         llm = HuggingFaceHub(
@@ -100,23 +99,16 @@ def analyze_resume(resume_text, jd_text):
         )
         
         prompt = f"""
-        [INST] You are an expert HR analyst. Your task is to analyze a resume against a job description.
-        You must provide a detailed analysis ONLY in a valid JSON format. Do not provide any text or explanation before or after the JSON object.
+        [INST] You are an expert HR analyst. Analyze the resume against the job description.
+        Provide a detailed analysis ONLY in a valid JSON format. Do not provide any text or explanation before or after the JSON object.
         The JSON should have these exact keys: "overallScore", "scoreGoodness", "skillsMatchedCount", "skillsMissingCount", "relevantProjectsCount", "matchedSkills", "missingSkills", "experience", "education", "improvements".
         
-        For "matchedSkills" and "missingSkills", create a list of JSON objects, each with a "skill" and "score" or "importance" key.
-        For "experience" and "education", create a JSON object with keys like "required", "match", and "level".
+        For "matchedSkills" and "missingSkills", create a list of JSON objects, each with a "skill" key.
+        For "experience" and "education", create a JSON object with keys like "match" and "level".
         For "improvements", create a JSON object with a key "resume" which is a list of suggestion strings.
 
-        Here is the resume:
-        ---
-        {resume_text}
-        ---
-
-        Here is the job description:
-        ---
-        {jd_text}
-        ---
+        Resume: {resume_text}
+        Job Description: {jd_text}
         [/INST]
         """
         response = llm.invoke(prompt)
@@ -126,8 +118,7 @@ def analyze_resume(resume_text, jd_text):
             json_response_str = match.group(0)
             return json.loads(json_response_str)
         else:
-            return {"error": "The AI model returned a response that was not in the expected JSON format."}
+            return {"error": "The AI model returned an invalid response. The free model may be temporarily overloaded. Please try again in a few moments."}
 
     except Exception as e:
         return {"error": f"An error occurred during AI analysis: {e}"}
-
