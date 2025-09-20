@@ -92,15 +92,10 @@ def analyze_resume(resume_text, jd_text):
     if not hf_api_key:
         # Fallback to dummy data if no API key is set
         return {
-            "overallScore": 78,
-            "scoreGoodness": "Good Match",
-            "skillsMatchedCount": 4,
-            "skillsMissingCount": 3,
-            "relevantProjectsCount": 3,
-            # ... (rest of the dummy data)
+            "overallScore": 78, "scoreGoodness": "Good Match", "skillsMatchedCount": 4,
+            "skillsMissingCount": 3, "relevantProjectsCount": 3
         }
 
-    # If API key exists, proceed with real analysis using a free model
     try:
         llm = HuggingFaceHub(
             repo_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
@@ -115,19 +110,15 @@ def analyze_resume(resume_text, jd_text):
         "relevantProjectsCount", "matchedSkills", "missingSkills", "experience", 
         "education", "improvements". Do not provide any explanation or text outside of the JSON object.
 
-        Resume Text:
-        ---
+        Resume Text:---
         {resume_text}
         ---
-
-        Job Description Text:
-        ---
+        Job Description Text:---
         {jd_text}
         ---
         [/INST]
         """
         response = llm.invoke(prompt)
-        # Clean the response to ensure it's valid JSON
         json_response_str = response.strip().split('{', 1)[1].rsplit('}', 1)[0]
         return json.loads('{' + json_response_str + '}')
 
