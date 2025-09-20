@@ -7,8 +7,8 @@ import re
 import PyPDF2
 import docx2txt
 import pdfplumber
-# --- THIS IS THE CHANGE ---
-from langchain_huggingface import HuggingFaceEndpoint
+# --- We are using the stable, reliable class ---
+from langchain_community.llms import HuggingFaceHub
 
 # --- Database ---
 # This logic ensures the app finds the single database in the project's root folder.
@@ -93,13 +93,10 @@ def analyze_resume(resume_text, jd_text):
         return {"error": "Hugging Face API Token not found. Please check the secret name in your Streamlit settings. It must be exactly HUGGINGFACEHUB_API_TOKEN."}
 
     try:
-        # --- THIS IS THE CHANGE ---
-        llm = HuggingFaceEndpoint(
+        llm = HuggingFaceHub(
             repo_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
-            huggingfacehub_api_token=hf_api_key,
-            task="text-generation",
-            max_new_tokens=1500,
-            temperature=0.1
+            huggingfacehub_api_token=hf_api_key, 
+            model_kwargs={"task": "text-generation", "temperature": 0.1, "max_new_tokens": 1500}
         )
         
         prompt = f"""
@@ -126,5 +123,4 @@ def analyze_resume(resume_text, jd_text):
 
     except Exception as e:
         return {"error": f"An error occurred during AI analysis: {e}"}
-
 
