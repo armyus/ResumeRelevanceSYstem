@@ -8,12 +8,12 @@ import tempfile
 import PyPDF2
 import docx2txt
 import pdfplumber
-from langchain_openai import ChatOpenAI
+from huggingface_hub import InferenceClient  # Replace langchain_openai with huggingface_hub
 
 # --- Database ---
 # --- FINAL, CORRECTED PATH LOGIC ---
 # This logic ensures both apps find the single database in the project's root folder.
-current_dir = os.path.dirname(os.path.abspath(_file_))
+current_dir = os.path.dirname(os.path.abspath(__file__))
 # If the script is running from the 'frontend' folder, go up one level to find the root.
 if os.path.basename(current_dir) == 'frontend':
     PROJECT_ROOT = os.path.dirname(current_dir)
@@ -63,7 +63,7 @@ def save_job_to_db(title, description, skills):
 
 def load_jobs_from_db():
     if not os.path.exists(DB_PATH):
-        return [] # Return empty list if database doesn't exist yet
+        return []  # Return empty list if database doesn't exist yet
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM jobs ORDER BY timestamp DESC")
@@ -104,9 +104,9 @@ def extract_text_from_file(file):
 # --- AI Analysis ---
 def analyze_resume(resume_text, jd_text):
     """Analyzes resume against job description using an LLM or returns dummy data."""
-    api_key = os.getenv("OPENAI_API_KEY")
+    hf_token = os.getenv("HF_TOKEN")  # Retrieve Hugging Face token from environment
 
-    if not api_key:
+    if not hf_token:
         # Fallback to dummy data if no API key is set
         return {
             "overallScore": 78,
@@ -141,9 +141,9 @@ def analyze_resume(resume_text, jd_text):
             }
         }
 
-    # If API key exists, proceed with real analysis
+    # If API token exists, proceed with real analysis
     try:
-        llm = ChatOpenAI(api_key=api_key, model="gpt-3.5-turbo")
+        client = InferenceClient(token=hf_token)
         prompt = f"""
         Analyze the following resume against the job description.
         Provide a detailed analysis in JSON format with the following keys:
@@ -161,8 +161,14 @@ def analyze_resume(resume_text, jd_text):
         {jd_text}
         ---
         """
-        response = llm.invoke(prompt)
-        return json.loads(response.content)
+        response = client.text_generation(
+            prompt=prompt,
+            model="microsoft/DialoGPT-medium",  # Use a conversational model; adjust as needed
+            max_new_tokens=500,
+            temperature=0.7,
+            do_sample=True
+        )
+        return json.loads(response)
 
     except Exception as e:
         return {"error": f"An error occurred during AI analysis: {e}"}
