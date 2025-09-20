@@ -2,23 +2,25 @@ import sqlite3
 import os
 import json
 import re
+import tempfile
 
 # Third-party libraries
 import PyPDF2
 import docx2txt
 import pdfplumber
-from langchain_community.llms import HuggingFaceHub
 from langchain_openai import ChatOpenAI
 
 # --- Database ---
-# This logic ensures the app finds the single database in the project's root folder.
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if os.path.basename(current_dir) == 'pages':
-    PROJECT_ROOT = os.path.dirname(os.path.dirname(current_dir))
+# --- FINAL, CORRECTED PATH LOGIC ---
+# This logic ensures both apps find the single database in the project's root folder.
+current_dir = os.path.dirname(os.path.abspath(_file_))
+# If the script is running from the 'frontend' folder, go up one level to find the root.
+if os.path.basename(current_dir) == 'frontend':
+    PROJECT_ROOT = os.path.dirname(current_dir)
 else:
     PROJECT_ROOT = current_dir
 DB_PATH = os.path.join(PROJECT_ROOT, 'results.db')
-
+# --- END OF CHANGE ---
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -30,6 +32,19 @@ def init_db():
             title TEXT NOT NULL,
             description TEXT NOT NULL,
             skills TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    # Create results table (for analysis)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            resume_name TEXT NOT NULL,
+            job_title TEXT NOT NULL,
+            score INTEGER NOT NULL,
+            verdict TEXT,
+            missing_skills TEXT,
+            suggestions TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -48,13 +63,14 @@ def save_job_to_db(title, description, skills):
 
 def load_jobs_from_db():
     if not os.path.exists(DB_PATH):
-        return []
+        return [] # Return empty list if database doesn't exist yet
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM jobs ORDER BY timestamp DESC")
     jobs = cursor.fetchall()
     conn.close()
     
+    # Convert list of tuples to list of dicts for easier handling
     job_list = []
     for job in jobs:
         job_list.append({
@@ -81,58 +97,72 @@ def extract_text_from_file(file):
         text = re.sub(r'(?<!\n)\n(?!\n)', ' ', raw_text) 
         text = re.sub(r' +', ' ', text) 
         return text.strip()
+
     except Exception as e:
         return f"Error extracting text: {e}"
 
 # --- AI Analysis ---
 def analyze_resume(resume_text, jd_text):
-    """Analyzes resume against job description using the best available free model."""
-    hf_api_key = os.getenv("HUGGINGFACEHUB_API_TOKEN")
+    """Analyzes resume against job description using an LLM or returns dummy data."""
+    api_key = os.getenv("OPENAI_API_KEY")
 
-    if not hf_api_key:
+    if not api_key:
+        # Fallback to dummy data if no API key is set
         return {
-            "overallScore": 78, "scoreGoodness": "Good Match", "skillsMatchedCount": 4,
-            "skillsMissingCount": 3, "relevantProjectsCount": 3
+            "overallScore": 78,
+            "scoreGoodness": "Good Match",
+            "skillsMatchedCount": 4,
+            "skillsMissingCount": 3,
+            "relevantProjectsCount": 3,
+            "matchedSkills": [
+                {"skill": "React", "required": True, "score": 95},
+                {"skill": "JavaScript", "required": True, "score": 90},
+                {"skill": "HTML/CSS", "required": True, "score": 88},
+                {"skill": "Git", "required": False, "score": 85}
+            ],
+            "missingSkills": [
+                {"skill": "TypeScript", "importance": "High", "impact": -15},
+                {"skill": "Redux", "importance": "Medium", "impact": -8},
+                {"skill": "Testing (Jest)", "importance": "Medium", "impact": -6}
+            ],
+            "experience": {
+                "required": "2-4 years",
+                "match": "2.5 years",
+                "level": "Good"
+            },
+            "education": {
+                "match": "Perfect",
+                "ranking": "Good"
+            },
+            "improvements": {
+                "skills": ["Focus on TypeScript.", "Learn Redux for state management."],
+                "experience": ["Contribute to larger-scale projects."],
+                "resume": ["Quantify achievements in project descriptions."]
+            }
         }
 
+    # If API key exists, proceed with real analysis
     try:
-        llm = HuggingFaceHub(
-            repo_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
-            huggingfacehub_api_token=hf_api_key,
-            model_kwargs={"task": "text-generation", "temperature": 0.1, "max_new_tokens": 1500}
-        )
-        
-        # --- NEW, SIMPLER, AND MORE RELIABLE PROMPT ---
+        llm = ChatOpenAI(api_key=api_key, model="gpt-3.5-turbo")
         prompt = f"""
-        [INST] You are an expert HR analyst. Your task is to analyze a resume against a job description.
-        You must provide a detailed analysis ONLY in a valid JSON format. Do not provide any text or explanation before or after the JSON object.
-        The JSON should have these exact keys: "overallScore", "scoreGoodness", "skillsMatchedCount", "skillsMissingCount", "relevantProjectsCount", "matchedSkills", "missingSkills", "experience", "education", "improvements".
-        
-        For "matchedSkills" and "missingSkills", create a list of JSON objects, each with a "skill" and "score" or "importance" key.
-        For "experience" and "education", create a JSON object with keys like "required", "match", and "level".
-        For "improvements", create a JSON object with a key "resume" which is a list of suggestion strings.
+        Analyze the following resume against the job description.
+        Provide a detailed analysis in JSON format with the following keys:
+        "overallScore", "scoreGoodness", "skillsMatchedCount", "skillsMissingCount", 
+        "relevantProjectsCount", "matchedSkills", "missingSkills", "experience", 
+        "education", "improvements".
 
-        Here is the resume:
+        Resume Text:
         ---
         {resume_text}
         ---
 
-        Here is the job description:
+        Job Description Text:
         ---
         {jd_text}
         ---
-        [/INST]
         """
         response = llm.invoke(prompt)
-        
-        # A more robust way to find the JSON object in the response
-        match = re.search(r'\{.*\}', response, re.DOTALL)
-        if match:
-            json_response_str = match.group(0)
-            return json.loads(json_response_str)
-        else:
-            return {"error": "The AI model returned a response that was not in the expected JSON format."}
+        return json.loads(response.content)
 
     except Exception as e:
         return {"error": f"An error occurred during AI analysis: {e}"}
-
