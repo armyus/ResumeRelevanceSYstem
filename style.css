@@ -1,0 +1,87 @@
+/* --- General App Styling --- */
+.stApp {
+    background-color: #0F172A; /* Dark Slate Blue Background */
+    color: #CBD5E1; /* Light Slate Gray Text */
+    font-family: 'Inter', sans-serif;
+}
+
+/* --- Login Page Styling --- */
+div[data-testid="stForm"] {
+    background-color: #1E293B; /* Lighter Slate Container */
+    border: 1px solid #334155; /* Subtle Border */
+    padding: 2.5rem;
+    border-radius: 10px;
+    max-width: 450px;
+    margin: auto;
+}
+
+/* --- Styling for Text Inputs on Login --- */
+div[data-testid="stTextInput"] input {
+    background-color: #334155;
+    color: #CBD5E1;
+    border: 1px solid #475569;
+    border-radius: 8px;
+}
+
+/* --- Main Dashboard & Containers --- */
+div[data-testid="stMetric"] {
+    background-color: #1E293B; /* Lighter Slate Container */
+    border-radius: 10px;
+    padding: 15px;
+    border: 1px solid #334155; /* Subtle Border */
+}
+
+div.st-emotion-cache-1r6slb0, /* Main containers for jobs */
+div.st-emotion-cache-0 {
+    border: 1px solid #334155; /* Subtle Border */
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    background-color: #1E293B; /* Lighter Slate Container */
+}
+
+/* --- Buttons --- */
+div[data-testid="stButton"] > button {
+    background-color: #334155; /* A more subtle button color */
+    color: #F1F5F9;
+    border-radius: 8px;
+    border: 1px solid #475569;
+    padding: 10px 20px;
+    width: 100%;
+}
+div[data-testid="stButton"] > button:hover {
+    background-color: #475569;
+    border-color: #64748B;
+    color: #FFFFFF;
+}
+
+/* --- Other UI Elements --- */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 24px;
+}
+
+.stTabs [data-baseweb="tab"] {
+    height: 44px;
+    background-color: transparent;
+    padding: 0;
+}
+
+.stTabs [data-baseweb="tab--selected"] {
+    background-color: transparent;
+    color: #5EEAD4; /* Bright Teal for selected tab */
+    border-bottom-color: #5EEAD4;
+}
+
+.skill-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    background-color: #334155;
+    color: #94A3B8;
+    border-radius: 15px;
+    margin: 2px;
+    font-size: 0.85em;
+}
+
+.job-divider {
+    border-top: 1px solid #334155;
+}
