@@ -95,11 +95,10 @@ def analyze_resume(resume_text, jd_text):
     try:
         llm = HuggingFaceHub(
             repo_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
-            HF_TOKEN=hf_api_key,
+            huggingfacehub_api_token=hf_api_key, 
             model_kwargs={"task": "text-generation", "temperature": 0.1, "max_new_tokens": 1500}
         )
         
-        # --- NEW, SIMPLER, AND MORE RELIABLE PROMPT ---
         prompt = f"""
         [INST] You are an expert HR analyst. Your task is to analyze a resume against a job description.
         You must provide a detailed analysis ONLY in a valid JSON format. Do not provide any text or explanation before or after the JSON object.
@@ -122,7 +121,6 @@ def analyze_resume(resume_text, jd_text):
         """
         response = llm.invoke(prompt)
         
-        # A more robust way to find the JSON object in the response
         match = re.search(r'\{.*\}', response, re.DOTALL)
         if match:
             json_response_str = match.group(0)
