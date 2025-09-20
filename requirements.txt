@@ -1,0 +1,14 @@
+pdfplumber
+python-docx
+spacy
+nltk
+langchain
+langgraph
+langsmith
+faiss-cpu  # For vector store (simple, local)
+sentence-transformers  # For embeddings (free alternative to paid LLMs)
+fuzzywuzzy
+scikit-learn  # For TF-IDF
+fastapi
+uvicorn
+streamlit

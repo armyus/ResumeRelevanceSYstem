@@ -1,0 +1,25 @@
+{
+    "resume_file": "resume - 1.pdf",
+    "jd_file": "sample_jd_1.pdf",
+    "hard_score": 25.0,
+    "soft_score": 34.55986604094505,
+    "total_score": 59.55986604094505,
+    "matched_skills": [
+        [
+            "R",
+            "Seaborn"
+        ],
+        [
+            "r",
+            "Seaborn"
+        ],
+        [
+            "Python",
+            ". Skills Languages & Tools Data Visualization Python"
+        ],
+        [
+            "Pandas",
+            "Power BI Libraries & Frameworks Soft Skills Pandas"
+        ]
+    ]
+}
