@@ -7,7 +7,7 @@ import re
 import PyPDF2
 import docx2txt
 import pdfplumber
-from langchain_community.llms import HuggingFaceHub # CHANGED
+from langchain_community.llms import HuggingFaceHub
 from langchain_openai import ChatOpenAI
 
 # --- Database ---
@@ -105,7 +105,8 @@ def analyze_resume(resume_text, jd_text):
         llm = HuggingFaceHub(
             repo_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
             huggingfacehub_api_token=hf_api_key,
-            model_kwargs={"temperature": 0.2, "max_length": 1024}
+            # --- THIS IS THE FIX ---
+            model_kwargs={"task": "text-generation", "temperature": 0.2, "max_new_tokens": 1024}
         )
         prompt = f"""
         [INST] You are an expert HR analyst. Analyze the following resume against the job description.
@@ -132,3 +133,4 @@ def analyze_resume(resume_text, jd_text):
 
     except Exception as e:
         return {"error": f"An error occurred during AI analysis: {e}"}
+
