@@ -36,6 +36,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 def save_job_to_db(title, description, skills):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -45,6 +46,7 @@ def save_job_to_db(title, description, skills):
     )
     conn.commit()
     conn.close()
+
 
 def load_jobs_from_db():
     if not os.path.exists(DB_PATH):
@@ -66,6 +68,7 @@ def load_jobs_from_db():
         })
     return job_list
 
+
 # --- File Processing ---
 def extract_text_from_file(file):
     """Extracts text from PDF or DOCX and cleans it."""
@@ -84,44 +87,63 @@ def extract_text_from_file(file):
     except Exception as e:
         return f"Error extracting text: {e}"
 
+
 # --- AI Analysis ---
 def analyze_resume(resume_text, jd_text):
-    """Analyzes resume against job description using the best available free model."""
+    """Analyzes resume against job description using HuggingFaceHub, with OpenAI fallback."""
     hf_api_key = os.getenv("HUGGINGFACEHUB_API_TOKEN")
+    openai_api_key = os.getenv("OPENAI_API_KEY")
 
-    if not hf_api_key:
-        # Fallback to dummy data if no API key is set
+    # If no keys are set at all → fallback to dummy values
+    if not hf_api_key and not openai_api_key:
         return {
             "overallScore": 78, "scoreGoodness": "Good Match", "skillsMatchedCount": 4,
             "skillsMissingCount": 3, "relevantProjectsCount": 3
         }
 
-    try:
-        llm = HuggingFaceHub(
-            repo_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
-            huggingfacehub_api_token=hf_api_key,
-            # --- THIS IS THE FIX ---
-            model_kwargs={"task": "text-generation", "temperature": 0.2, "max_new_tokens": 1024}
-        )
-        prompt = f"""
-        [INST] You are an expert HR analyst. Analyze the following resume against the job description.
-        Provide a detailed analysis ONLY in JSON format with the following keys:
-        "overallScore", "scoreGoodness", "skillsMatchedCount", "skillsMissingCount", 
-        "relevantProjectsCount", "matchedSkills", "missingSkills", "experience", 
-        "education", "improvements". Do not provide any explanation or text outside of the JSON object.
+    prompt = f"""
+    [INST] You are an expert HR analyst. Analyze the following resume against the job description.
+    Provide a detailed analysis ONLY in JSON format with the following keys:
+    "overallScore", "scoreGoodness", "skillsMatchedCount", "skillsMissingCount", 
+    "relevantProjectsCount", "matchedSkills", "missingSkills", "experience", 
+    "education", "improvements". Do not provide any explanation or text outside of the JSON object.
 
-        Resume Text:---
-        {resume_text}
-        ---
-        Job Description Text:---
-        {jd_text}
-        ---
-        [/INST]
-        """
-        response = llm.invoke(prompt)
-        json_response_str = response.strip().split('{', 1)[1].rsplit('}', 1)[0]
-        return json.loads('{' + json_response_str + '}')
+    Resume Text:---
+    {resume_text}
+    ---
+    Job Description Text:---
+    {jd_text}
+    ---
+    [/INST]
+    """
 
-    except Exception as e:
-        return {"error": f"An error occurred during AI analysis: {e}"}
+    # --- Try HuggingFace First ---
+    if hf_api_key:
+        try:
+            llm = HuggingFaceHub(
+                repo_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
+                huggingfacehub_api_token=hf_api_key,
+                task="text-generation",   # ✅ Correct placement
+                model_kwargs={"temperature": 0.2, "max_new_tokens": 1024}
+            )
+            response = llm.invoke(prompt)
+            json_response_str = response.strip().split('{', 1)[1].rsplit('}', 1)[0]
+            return json.loads('{' + json_response_str + '}')
+        except Exception as e:
+            print(f"[HuggingFace ERROR] {e}")
 
+    # --- Fallback to OpenAI ---
+    if openai_api_key:
+        try:
+            llm = ChatOpenAI(
+                openai_api_key=openai_api_key,
+                model="gpt-3.5-turbo",  # can upgrade to gpt-4 if you have access
+                temperature=0.2
+            )
+            response = llm.invoke(prompt)
+            json_response_str = response.content.strip().split('{', 1)[1].rsplit('}', 1)[0]
+            return json.loads('{' + json_response_str + '}')
+        except Exception as e:
+            print(f"[OpenAI ERROR] {e}")
+
+    return {"error": "AI analysis failed. Please check your API keys or model setup."}
