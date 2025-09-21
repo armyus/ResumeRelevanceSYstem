@@ -1,3 +1,4 @@
+import streamlit as st
 import sqlite3
 import os
 import json
@@ -8,7 +9,7 @@ import PyPDF2
 import docx2txt
 import pdfplumber
 # --- We are using the stable, reliable class ---
-from langchain_community.llms import HuggingFaceHub
+from langchain_huggingface import HuggingFaceEndpoint
 
 # --- Database ---
 # This logic ensures the app finds the single database in the project's root folder.
@@ -87,31 +88,32 @@ def extract_text_from_file(file):
 # --- AI Analysis ---
 def analyze_resume(resume_text, jd_text):
     """Analyzes resume against job description using the best available free model."""
-    hf_api_key = os.getenv("HUGGINGFACEHUB_API_TOKEN")
-
-    if not hf_api_key:
+    # Check for the secret using st.secrets, which is the standard for Streamlit
+    if "HUGGINGFACEHUB_API_TOKEN" not in st.secrets:
         return {"error": "Hugging Face API Token not found. Please check the secret name in your Streamlit settings. It must be exactly HUGGINGFACEHUB_API_TOKEN."}
+    
+    # Retrieve the key from st.secrets
+    hf_api_key = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
 
     try:
-        llm = HuggingFaceHub(
-            repo_id="mistralai/Mixtral-8x7B-Instruct-v0.1",
-            huggingfacehub_api_token=hf_api_key, 
-            model_kwargs={"task": "text-generation", "temperature": 0.1, "max_new_tokens": 1500}
+        llm = HuggingFaceEndpoint(
+            repo_id="google/flan-t5-large",
+            huggingfacehub_api_token=hf_api_key,
+            task="text2text-generation",
+            temperature=0.1,
+            max_new_tokens=1500
         )
         
-        prompt = f"""
-        [INST] You are an expert HR analyst. Analyze the resume against the job description.
+        prompt = f"""You are an expert HR analyst. Analyze the resume against the job description.
         Provide a detailed analysis ONLY in a valid JSON format. Do not provide any text or explanation before or after the JSON object.
         The JSON should have these exact keys: "overallScore", "scoreGoodness", "skillsMatchedCount", "skillsMissingCount", "relevantProjectsCount", "matchedSkills", "missingSkills", "experience", "education", "improvements".
-        
+
         For "matchedSkills" and "missingSkills", create a list of JSON objects, each with a "skill" key.
         For "experience" and "education", create a JSON object with keys like "match" and "level".
         For "improvements", create a JSON object with a key "resume" which is a list of suggestion strings.
 
         Resume: {resume_text}
-        Job Description: {jd_text}
-        [/INST]
-        """
+        Job Description: {jd_text}"""
         response = llm.invoke(prompt)
         
         match = re.search(r'\{.*\}', response, re.DOTALL)
@@ -123,4 +125,3 @@ def analyze_resume(resume_text, jd_text):
 
     except Exception as e:
         return {"error": f"An error occurred during AI analysis: {e}"}
-
